@@ -1,0 +1,186 @@
+# Import library that's needed
+import random
+
+# Variable Library
+kapasitas_kontainer   = 0   # Kapasitas Kontainer di current problem -- Seluruh Kontainer memiliki kapasitas yang sama.
+jumlah_barang         = 0   # Jumlah Barang di current problem.
+barang                = []  # ID Barang -- Kode unik setiap barang  AND  Ukuran --- Ukuran/Berat barang tersebut.  
+kontainer             = []  # Kontainer untuk menyimpan barang yang ada.
+kontainer_id          = 0   # ID Kontainer untuk keeptrack array.
+
+# Menerima input untuk variabel kapasitas_kontainer
+kapasitas_kontainer = int(input("kapasitas_kontainer: "))
+
+# Menerima input untuk variabel total jumlah barang (declare jumlah array)
+jumlah_barang       = int(input("jumlah barang yang disimpan: "))
+
+# Menerima input untuk array barang
+for i in range(jumlah_barang):
+    print(f"\n Barang ke-{i+1}: ")
+    
+    # Loop validation for unique id_barang
+    while True:
+        id_barang = input("  id barang(e.g. BRG011): ")
+        
+        id_barang_sudah_ada = False
+        for item in barang:  # Mengecek tiap item di barang apakah ID ada yang duplicate O(n)
+            if item['id'] == id_barang:
+                id_barang_sudah_ada = True
+                break
+            
+        if id_barang_sudah_ada:
+            print(f"  barang dengan id {id_barang} sudah ada pada list barang!")
+            
+        else:
+            break
+            
+    ukuran_barang = int(input("  ukuran barang(kg/m³): "))
+    
+    barang.append({
+        'id': id_barang,
+        'ukuran': ukuran_barang
+    })
+
+# Deklarasi Array Kontainer 
+kontainer.append([])
+kontainer_space_left = kapasitas_kontainer
+
+
+# Deklarasi Penyebaran Kontainer secara Random
+while True:
+    if len(barang) == 0:
+        break
+        
+    # 1. Pemilihan first arbitrary variabel dari current_container
+    random_index   = random.randint(0, len(barang) - 1)
+    random_barang  = barang[random_index]
+    
+    # 2. IF barang dapat dimasukan (Tidak Overflow)
+    if random_barang['ukuran'] <= kontainer_space_left:
+        kontainer[kontainer_id].append({
+            'barang': random_barang
+        })
+        
+        kontainer_space_left -= random_barang['ukuran']
+        barang.pop(random_index)
+
+    # 3. IF overflow, akan membuka kontainer baru
+    else:
+        kontainer_id += 1
+        kontainer.append([])
+        kontainer_space_left = kapasitas_kontainer
+
+# Format print kontainer hasil algoritma Hill-Climbing
+print("\n" + "="*60)
+print("SPAWN BARANG DALAM KONTAINER")
+print("="*60)
+
+for idx, container in enumerate(kontainer):
+    print(f"\nKontainer {idx + 1}:")
+    total_ukuran = 0
+    
+    for item in container:
+        barang_i_tempnfo = item['barang']
+        print(f"  - ID: {barang_i_tempnfo['id']}, Ukuran: {barang_i_tempnfo['ukuran']} kg/m³")
+        total_ukuran += barang_i_tempnfo['ukuran']
+    
+    sisa_kapasitas = kapasitas_kontainer - total_ukuran
+    print(f"  Total Terisi: {total_ukuran}/{kapasitas_kontainer} kg/m³")
+    print(f"  Sisa Kapasitas: {sisa_kapasitas} kg/m³")
+    print(f"  Efisiensi: {(total_ukuran/kapasitas_kontainer)*100:.2f}%")
+
+print("\n" + "="*60)
+print(f"Total Kontainer Digunakan: {len(kontainer)}")
+print("="*60)
+
+# Helper function untuk Hill Climbing Algorithm
+def calculate_kontainer_total(kontainer):
+    total = 0
+    for arr_barang in kontainer:
+        total += arr_barang['barang']['ukuran']
+    return total
+
+def calculate_unused(kontainer, kapasitas):
+    total_unused = 0
+    for container in kontainer:
+        used          = calculate_kontainer_total(container)
+        unused        = kapasitas - used
+        total_unused += unused
+    return total_unused
+
+
+# ==> Hill Climbing Search Algorithm Starting Here <==
+current_iteration = 0
+max_iterations    = 3
+best_case_unused  = calculate_unused(kontainer, kapasitas_kontainer)
+improvement_found = True
+
+# THIS CAN BE REMOVED(?), MAKE SURE FIRST!
+while improvement_found and current_iteration < max_iterations:
+    improvement_found  = False
+# THIS CAN BE REMOVED(?), MAKE SURE FIRST!
+
+    for i in range(len(kontainer)):
+        current_iteration = 0 # Menghitung iteration sesuai dengan constraint yang berlaku
+        
+        for j in range (i + 1, len(kontainer)):
+            
+            # Double for-loop untuk mengecek setiap item di kontainer I untuk setiap item di seluruh kontainer kanannya I [O(n²)]
+            for index_i in range(len(kontainer[i])):
+                for index_j in range(len(kontainer[j])):
+                    current_total_i = calculate_kontainer_total(kontainer[i]) # Hanya berfokus pada peningkatan value dari barang I.
+                    
+                    if current_total_i < kapasitas_kontainer and current_iteration < max_iterations: # IF sudah 100% capacity atau max_iteration, THEN continue to new variable..
+                        current_iteration += 1
+                        print(f"Iteration {current_iteration}")
+                        
+                        current_total_j = calculate_kontainer_total(kontainer[j])
+                        
+                        # Barang variable (current & new)
+                        barang_i_temp   = kontainer[i][index_i]['barang']
+                        barang_j_temp   = kontainer[j][index_j]['barang']
+                        
+                        # New total variable IF swaps happens                 
+                        new_total_i     = current_total_i - barang_i_temp['ukuran'] + barang_j_temp['ukuran']
+                        new_total_j     = current_total_j - barang_j_temp['ukuran'] + barang_i_temp['ukuran']
+                                            
+                        if new_total_i <= kapasitas_kontainer and new_total_j <= kapasitas_kontainer: # Overflow countermeassure
+                                                    
+                            if (kapasitas_kontainer - new_total_i) < (kapasitas_kontainer - current_total_i): # Change Here untuk Sideways Modifcation, Current Algorithm is Steepest (Neighbor [>]BETTER[>] Current)
+                                kontainer[i][index_i]['barang'] = barang_j_temp
+                                kontainer[j][index_j]['barang'] = barang_i_temp
+                                improvement_found = True
+                                print(f"[!!!Swap!!!]: Swapped {barang_i_temp['id']} ↔ {barang_j_temp['id']} (Waste reduced by {new_total_i - current_total_i})")
+                                current_iteration = 0
+                            
+                            else: # Local Maxima break
+                                break
+                            
+                        else: # Overflow break
+                            break
+                        
+                    else: # 100% Capacity & Max Iterations break
+                        break
+
+# Format print kontainer hasil algoritma Hill-Climbing
+print("\n" + "="*60)
+print("HASIL PENYIMPANAN BARANG DALAM KONTAINER")
+print("="*60)
+
+for idx, container in enumerate(kontainer):
+    print(f"\nKontainer {idx + 1}:")
+    total_ukuran = 0
+    
+    for item in container:
+        barang_i_tempnfo = item['barang']
+        print(f"  - ID: {barang_i_tempnfo['id']}, Ukuran: {barang_i_tempnfo['ukuran']} kg/m³")
+        total_ukuran += barang_i_tempnfo['ukuran']
+    
+    sisa_kapasitas = kapasitas_kontainer - total_ukuran
+    print(f"  Total Terisi: {total_ukuran}/{kapasitas_kontainer} kg/m³")
+    print(f"  Sisa Kapasitas: {sisa_kapasitas} kg/m³")
+    print(f"  Efisiensi: {(total_ukuran/kapasitas_kontainer)*100:.2f}%")
+
+print("\n" + "="*60)
+print(f"Total Kontainer Digunakan: {len(kontainer)}")
+print("="*60)
