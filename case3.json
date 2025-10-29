@@ -1,0 +1,15 @@
+{
+  "kapasitas_kontainer": 150,
+  "barang": [
+    { "id": "BRG001", "ukuran": 70 },
+    { "id": "BRG002", "ukuran": 72 },
+    { "id": "BRG003", "ukuran": 68 },
+    { "id": "BRG004", "ukuran": 69 },
+    { "id": "BRG005", "ukuran": 71 },
+    { "id": "BRG006", "ukuran": 30 },
+    { "id": "BRG007", "ukuran": 29 },
+    { "id": "BRG008", "ukuran": 31 },
+    { "id": "BRG009", "ukuran": 32 },
+    { "id": "BRG010", "ukuran": 28 }
+  ]
+}

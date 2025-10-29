@@ -2,13 +2,32 @@
 import random
 import math
 import json
+import sys
+
+# Set random seed for consistent results
+random.seed(42)
 
 # Load data from JSON file
 import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
-json_path = os.path.join(script_dir, 'test_case.json')
-with open(json_path, 'r') as f:
-    data = json.load(f)
+
+# Check JSON File
+if len(sys.argv) > 1:
+    json_filename = sys.argv[1]
+else:
+    json_filename = 'case1.json'  # Default 
+
+json_path = os.path.join(script_dir, json_filename)
+
+try:
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+    print(f"Using JSON file: {json_filename}")
+except FileNotFoundError:
+    print(f"Error: {json_filename} not found!")
+    print("Usage: python3 SimulatedAnnealing.py [json_filename]")
+    print("Example: python3 SimulatedAnnealing.py case2.json")
+    sys.exit(1)
 
 # Variable Library
 kapasitas_kontainer   = data['kapasitas_kontainer']  # Kapasitas Kontainer di current problem -- Seluruh Kontainer memiliki kapasitas yang sama.

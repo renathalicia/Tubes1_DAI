@@ -1,0 +1,20 @@
+{
+  "kapasitas_kontainer": 300,
+  "barang": [
+    { "id": "BRG001", "ukuran": 10 },
+    { "id": "BRG002", "ukuran": 15 },
+    { "id": "BRG003", "ukuran": 20 },
+    { "id": "BRG004", "ukuran": 25 },
+    { "id": "BRG005", "ukuran": 30 },
+    { "id": "BRG006", "ukuran": 35 },
+    { "id": "BRG007", "ukuran": 40 },
+    { "id": "BRG008", "ukuran": 45 },
+    { "id": "BRG009", "ukuran": 50 },
+    { "id": "BRG010", "ukuran": 55 },
+    { "id": "BRG011", "ukuran": 60 },
+    { "id": "BRG012", "ukuran": 65 },
+    { "id": "BRG013", "ukuran": 70 },
+    { "id": "BRG014", "ukuran": 75 },
+    { "id": "BRG015", "ukuran": 80 }
+  ]
+}
