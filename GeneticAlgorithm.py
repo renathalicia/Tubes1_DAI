@@ -1,61 +1,30 @@
 # Import library that's needed
 import random
 import math
+import json
+
+# Load data from JSON file
+import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
+json_path = os.path.join(script_dir, 'test_case.json')
+with open(json_path, 'r') as f:
+    data = json.load(f)
 
 # Variable Library
-kapasitas_kontainer   = 0   # Kapasitas Kontainer di current problem -- Seluruh Kontainer memiliki kapasitas yang sama.
-jumlah_barang         = 0   # Jumlah Barang di current problem.
-barang                = []  # ID Barang -- Kode unik setiap barang  AND  Ukuran --- Ukuran/Berat barang tersebut.  
-kontainer             = []  # Kontainer untuk menyimpan barang yang ada.
-kontainer_id          = 0   # ID Kontainer untuk keeptrack array.
-
-# Menerima input untuk variabel kapasitas_kontainer
-kapasitas_kontainer = int(input("kapasitas_kontainer: "))
-
-# Menerima input untuk variabel total jumlah barang (declare jumlah array)
-jumlah_barang       = int(input("jumlah barang yang disimpan: "))
+kapasitas_kontainer   = data['kapasitas_kontainer']  # Kapasitas Kontainer di current problem -- Seluruh Kontainer memiliki kapasitas yang sama.
+barang                = data['barang'].copy()         # ID Barang -- Kode unik setiap barang  AND  Ukuran --- Ukuran/Berat barang tersebut.  
+jumlah_barang         = len(barang)                   # Jumlah Barang di current problem.
+kontainer             = []                            # Kontainer untuk menyimpan barang yang ada.
+kontainer_id          = 0                             # ID Kontainer untuk keeptrack array.
 
 # Min & Max varibel untuk menentukan ΔEₘₐₓ sebagai T₀ sesuai approach oleh Kirkpatirc et al.
-min_ukuran          = float('-inf')
-max_ukuran          = float('-inf')
+min_ukuran = min(item['ukuran'] for item in barang)
+max_ukuran = max(item['ukuran'] for item in barang)
 
-# Menerima input untuk array barang
-for i in range(jumlah_barang):
-    print(f"\n Barang ke-{i+1}: ")
-    
-    # Loop validation for unique id_barang
-    while True:
-        id_barang = input("  id barang(e.g. BRG011): ")
-        
-        id_barang_sudah_ada = False
-        for item in barang:  # Mengecek tiap item di barang apakah ID ada yang duplicate O(n)
-            if item['id'] == id_barang:
-                id_barang_sudah_ada = True
-                break
-            
-        if id_barang_sudah_ada:
-            print(f"  barang dengan id {id_barang} sudah ada pada list barang!")
-            
-        else:
-            break
-            
-    ukuran_barang = int(input("  ukuran barang(kg/m³): "))
-    
-    if i == 0:
-        min_ukuran = ukuran_barang
-        max_ukuran = ukuran_barang
-    
-    else:
-        if ukuran_barang < min_ukuran:
-            min_ukuran = ukuran_barang
-        
-        if ukuran_barang > max_ukuran:
-            max_ukuran = ukuran_barang
-    
-    barang.append({
-        'id': id_barang,
-        'ukuran': ukuran_barang
-    })
+print(f"Loaded data from JSON file:")
+print(f"Kapasitas kontainer: {kapasitas_kontainer} kg/m³")
+print(f"Jumlah barang: {jumlah_barang}")
+print(f"Barang: {[f"{item['id']}({item['ukuran']})" for item in barang]}")
 
 barang_unrandomized = barang.copy()
 
