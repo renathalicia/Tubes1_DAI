@@ -168,11 +168,18 @@ def calculate_objective_function(kromosom, barang, kapasitas): # Objective funct
     return cost, K, total_overflow, sum_squared_fill_ratios
 
 
-main_objective_function = calculate_objective_function(main_kromosom, barang, kapasitas_kontainer)
+main_objective_function = calculate_objective_function(main_kromosom, barang_unrandomized, kapasitas_kontainer)
 
 
 def generate_candidate_partner(main_kromosom): # Membuat sequence dari candidate partner yang didapatkan dengan memanipulasi main kromosom.
-    K_max         = max(main_kromosom)
+    if not main_kromosom:
+        return []
+    
+    if main_kromosom:
+        K_max     = max(main_kromosom)
+    else:
+        K_max     = 1
+        
     partner       = main_kromosom.copy()
     mutation_type = random.choice(['swap', 'move', 'shuffle'])
     
@@ -215,7 +222,10 @@ def mutate_offspring(offspring, mutation_rate):
         return offspring
     
     mutated = offspring.copy()
-    K_max = max(mutated)
+    if mutated:
+        K_max = max(mutated)
+    else:
+        K_max = 1
     
     for i in range(len(mutated)):
         if random.random() < mutation_rate:
@@ -226,41 +236,88 @@ def mutate_offspring(offspring, mutation_rate):
 MAX_ITERATIONS = 10
 MUTATION_RATE  = 0.1
 
+best_POF, _, _, _ = main_objective_function
+
 for i in range (MAX_ITERATIONS):
     candidate_partner = [] # Array of Candidate Partners
     candidate_POF     = [] # Array of Objective Function each Candidate Partners
     
     for _ in range (3):
-        partner = generate_candidate_partner(main_kromosom)
-        POF, _, _, _         = calculate_objective_function(partner, barang, kapasitas_kontainer)
+        partner         = generate_candidate_partner(main_kromosom)
+        if not partner:
+            continue
+        POF, _, _, _    = calculate_objective_function(partner, barang_unrandomized, kapasitas_kontainer)
         candidate_partner.append(partner)     
         candidate_POF.append(POF)
+    
+    if not candidate_partner:
+        print("No candidates generated! Stopping Algorithm!")
+        break
     
     candidate_idx = int(min(range(len(candidate_POF)), key=lambda x: candidate_POF[x]))
     
     choosen_partner = candidate_partner[candidate_idx]
-    offspring       = parent_crossover(main_kromosom, choosen_partner)
     
+    offspring       = parent_crossover(main_kromosom, choosen_partner)
     offspring       = mutate_offspring(offspring, MUTATION_RATE)
     
-    offspring_POF, offspring_K, offspring_overflow, offspring_density = calculate_objective_function(offspring, barang, kapasitas_kontainer)
+    offspring_POF, offspring_K, offspring_overflow, offspring_density = calculate_objective_function(offspring, barang_unrandomized, kapasitas_kontainer)
     
     main_kromosom_POF, _, _, _ = main_objective_function
     
+    print(f"Iter {i+1}: parent_cost={main_kromosom_POF:.2f}, candidate_cost={candidate_POF[candidate_idx]:.2f}, offspring_cost={offspring_POF:.2f}, K={offspring_K}, overflow={offspring_overflow}")
+    
     if offspring_POF < main_kromosom_POF:
-        main_kromosom = offspring
+        main_kromosom           = offspring
         main_objective_function = (offspring_POF, offspring_K, offspring_overflow, offspring_density)
-    
-    
-            
+        best_POF                = offspring_POF
         
-    
-    
-    
         
+print("\n" + "="*60)
+print("FINAL RESULT")
+print("="*60)
+print(f"Best Cost: {best_POF:.2f}")
+print(f"Final Kromosom: {main_kromosom}")
+print("="*60)
+
+# Reconstruct containers from final kromosom
+final_K = max(main_kromosom) if main_kromosom else 0
+final_containers = [[] for _ in range(final_K)]
+
+for i, container_num in enumerate(main_kromosom):
+    final_containers[container_num - 1].append({
+        'barang': barang_unrandomized[i]
+    })
+
+# Print final container arrangement
+print("\n" + "="*60)
+print("FINAL CONTAINER ARRANGEMENT (AFTER GENETIC ALGORITHM)")
+print("="*60)
+
+for idx, container in enumerate(final_containers):
+    print(f"\nKontainer {idx + 1}:")
+    total_ukuran = 0
     
+    for item in container:
+        barang_info = item['barang']
+        print(f"  - ID: {barang_info['id']}, Ukuran: {barang_info['ukuran']} kg/m³")
+        total_ukuran += barang_info['ukuran']
     
+    sisa_kapasitas = kapasitas_kontainer - total_ukuran
+    overflow = max(0, total_ukuran - kapasitas_kontainer)
     
+    print(f"  Total Terisi: {total_ukuran}/{kapasitas_kontainer} kg/m³")
+    print(f"  Sisa Kapasitas: {sisa_kapasitas} kg/m³")
     
+    if overflow > 0:
+        print(f"  ⚠️ OVERFLOW: {overflow} kg/m³")
     
-    
+    print(f"  Efisiensi: {(total_ukuran/kapasitas_kontainer)*100:.2f}%")
+
+print("\n" + "="*60)
+print(f"Total Kontainer Digunakan: {len(final_containers)}")
+final_cost, final_K_check, final_overflow, final_density = main_objective_function
+print(f"Final Cost: {final_cost:.2f}")
+print(f"Total Overflow: {final_overflow}")
+print(f"Density Score: {final_density:.4f}")
+print("="*60)
