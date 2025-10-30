@@ -3,9 +3,10 @@ import random
 import math
 import json
 import sys
-
-# Set random seed for consistent results
-random.seed(42)
+import os
+import matplotlib.pyplot as plt
+import numpy as np
+import time
 
 # Load data from JSON file
 import os
@@ -15,7 +16,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) > 1:
     json_filename = sys.argv[1]
 else:
-    json_filename = 'case1.json'  # Default 
+    json_filename = 'case6.json'  
 
 json_path = os.path.join(script_dir, json_filename)
 
@@ -30,15 +31,11 @@ except FileNotFoundError:
     sys.exit(1)
 
 # Variable Library
-kapasitas_kontainer   = data['kapasitas_kontainer']  # Kapasitas Kontainer di current problem -- Seluruh Kontainer memiliki kapasitas yang sama.
+kapasitas_kontainer   = data['kapasitas_kontainer']   # Kapasitas Kontainer di current problem -- Seluruh Kontainer memiliki kapasitas yang sama.
 barang                = data['barang'].copy()         # ID Barang -- Kode unik setiap barang  AND  Ukuran --- Ukuran/Berat barang tersebut.  
 jumlah_barang         = len(barang)                   # Jumlah Barang di current problem.
 kontainer             = []                            # Kontainer untuk menyimpan barang yang ada.
 kontainer_id          = 0                             # ID Kontainer untuk keeptrack array.
-
-# Min & Max varibel untuk menentukan ΔEₘₐₓ sebagai T₀ sesuai approach oleh Kirkpatirc et al.
-min_ukuran = min(item['ukuran'] for item in barang)
-max_ukuran = max(item['ukuran'] for item in barang)
 
 print(f"Loaded data from JSON file:")
 print(f"Kapasitas kontainer: {kapasitas_kontainer} kg/m³")
@@ -111,68 +108,152 @@ def calculate_unused(kontainer, kapasitas):
         unused        = kapasitas - used
         total_unused += unused
     return total_unused
+
+def calculate_objective_function(kontainer, kapasitas):
+    # Penalty Definitions
+    P_OVERFLOW = 1000
+    P_BINS     = 1.0
+    P_DENSITY  = 0.1
     
+    K = len(kontainer)  # Number of containers
+    
+    total_overflow          = 0
+    sum_squared_fill_ratios = 0
+    
+    for container in kontainer:
+        total_size = calculate_kontainer_total(container)
+        
+        if total_size > kapasitas:  # Overflow penalty
+            overflow        = total_size - kapasitas
+            total_overflow += overflow
+        
+        if len(container) > 0:  # Fill ratio
+            fill_ratio               = total_size / kapasitas
+            sum_squared_fill_ratios += fill_ratio ** 2
+    
+    cost = (P_OVERFLOW * total_overflow) + (P_BINS * K) - (P_DENSITY * sum_squared_fill_ratios)
+    
+    return cost, K, total_overflow, sum_squared_fill_ratios
+
+def calculate_initial_temperature(kontainer, kapasitas):
+    # ΔEₘₐₓ sebagai T₀ sesuai approach oleh Kirkpatirc et al.
+
+    max_delta_E = 0
+    
+    # Mencari perbedaan dengan adjacent containers (i and i+1)
+    for i in range(len(kontainer) - 1):
+        j = i + 1 
+        
+        for index_i in range(len(kontainer[i])):
+            for index_j in range(len(kontainer[j])):
+                current_total_i = calculate_kontainer_total(kontainer[i])
+                current_total_j = calculate_kontainer_total(kontainer[j])
+                
+                barang_i_temp = kontainer[i][index_i]['barang']
+                barang_j_temp = kontainer[j][index_j]['barang']
+                
+                new_total_i = current_total_i - barang_i_temp['ukuran'] + barang_j_temp['ukuran']
+                new_total_j = current_total_j - barang_j_temp['ukuran'] + barang_i_temp['ukuran']
+                
+                current_unused_i = kapasitas - current_total_i
+                new_unused_i = kapasitas - new_total_i
+                
+                delta_E = abs(new_unused_i - current_unused_i)
+                
+                if delta_E > max_delta_E:
+                    max_delta_E = delta_E
+    
+    return max_delta_E
+
+# Variable for diagram needs
+acceptance_probability  = []
+iterations              = []
+history_POF             = []
 
 # ==> Simulated Annealing Search Algorithm Starting Here <==
-temperature       = max_ukuran - min_ukuran
-alpha             = 0.925
+start_time        = time.time()
+temperature       = calculate_initial_temperature(kontainer, kapasitas_kontainer)
+alpha             = 0.985
 min_temperature   = 0.1
-best_case_unused  = calculate_unused(kontainer, kapasitas_kontainer)
-improvement_found = True
+max_iterations    = 1000
+current_iteration = 0
 
-# This Simulated Annelaing uses a geometric/exponetial cooling approach
+print(f"\nInitial Temperature (T₀): {temperature:.2f}")
+print(f"Alpha (cooling rate): {alpha}")
+print(f"Min Temperature: {min_temperature}")
+print(f"Max Iterations: {max_iterations}")
+print("="*60)
+
+# This Simulated Annealing uses a geometric/exponential cooling approach
 # ---------------------------- Tₖ₊₁ = α * Tₖ ----------------------------
 
-# THIS CAN BE REMOVED(?), MAKE SURE FIRST!
-while improvement_found and temperature > min_temperature:
-    improvement_found  = False
-# THIS CAN BE REMOVED(?), MAKE SURE FIRST!
-
+while temperature > min_temperature and current_iteration < max_iterations:
+    # Objective Function Data Logging
+    current_POF, _, _, _ = calculate_objective_function(kontainer, kapasitas_kontainer)
+    history_POF.append(current_POF)
+    
+    # karena Simulated Annealing menggunakan Stochastic Hill Climbing, maka perlu ditentukan terlebih dahulu
+    possible_swaps = []
     for i in range(len(kontainer)):
-        for j in range (i + 1, len(kontainer)):
-            
-            # Double for-loop untuk mengecek setiap item di kontainer I untuk setiap item di seluruh kontainer kanannya I [O(n²)]
+        for j in range(i + 1, len(kontainer)):
             for index_i in range(len(kontainer[i])):
                 for index_j in range(len(kontainer[j])):
-                    current_total_i = calculate_kontainer_total(kontainer[i]) # Hanya berfokus pada peningkatan value dari barang I.
-                    
-                    if current_total_i < kapasitas_kontainer and temperature > min_temperature: # IF sudah 100% capacity atau max_iteration, THEN continue to new variable..
-                        current_total_j = calculate_kontainer_total(kontainer[j])
-                        
-                        # Barang variable (current & new)
-                        barang_i_temp   = kontainer[i][index_i]['barang']
-                        barang_j_temp   = kontainer[j][index_j]['barang']
-                        
-                        # New total variable IF swaps happens                 
-                        new_total_i     = current_total_i - barang_i_temp['ukuran'] + barang_j_temp['ukuran']
-                        new_total_j     = current_total_j - barang_j_temp['ukuran'] + barang_i_temp['ukuran']
-                        
-                        current_unused  = (kapasitas_kontainer - current_total_i) 
-                        new_unused      = (kapasitas_kontainer - new_total_i) 
+                    possible_swaps.append((i, j, index_i, index_j))
+    
+    if not possible_swaps: # Break IF there is no swap possible
+        print("No possible swaps available. Stopping.")
+        break
+    
+    # Pick one random swap of possible swaps
+    i, j, index_i, index_j = random.choice(possible_swaps)
+    
+    current_total_i = calculate_kontainer_total(kontainer[i])
+    current_total_j = calculate_kontainer_total(kontainer[j])
+    
+    # Barang variable (current)
+    barang_i_temp = kontainer[i][index_i]['barang']
+    barang_j_temp = kontainer[j][index_j]['barang']
+    
+    # New total variable IF swaps happens
+    new_total_i = current_total_i - barang_i_temp['ukuran'] + barang_j_temp['ukuran']
+    new_total_j = current_total_j - barang_j_temp['ukuran'] + barang_i_temp['ukuran']
+    
+    # Overflow validation 
+    if new_total_i <= kapasitas_kontainer and new_total_j <= kapasitas_kontainer:
+        # ΔE calculation --> Current.Value - Neighbor.Value
+        current_unused = (kapasitas_kontainer - current_total_i)
+        new_unused = (kapasitas_kontainer - new_total_i)
+        
+        delta_E = new_unused - current_unused
+        
+        if delta_E >= 0: # ΔE > 0, THEN Accept
+            accept = True
+            probability = 1.0 # Actually, P will always be >= 1, but to reduce calculations we can consider it to be 1.
+            
+        else:
+            # If ΔE < 0, then calculate P = e^(ΔE/T)
+            probability = math.exp(delta_E / temperature)  
+            accept      = random.random() < probability
+        
+        iterations.append(current_iteration)
+        acceptance_probability.append(probability)
+        
+        if accept:
+            kontainer[i][index_i]['barang'] = barang_j_temp
+            kontainer[j][index_j]['barang'] = barang_i_temp
+            
+            if delta_E >= 0:
+                print(f"Iter {current_iteration+1}: [ACCEPT] {barang_i_temp['id']} ↔ {barang_j_temp['id']} | ΔE={delta_E:.2f} | T={temperature:.2f}")
+            else:
+                print(f"Iter {current_iteration+1}: [PROB-ACCEPT] {barang_i_temp['id']} ↔ {barang_j_temp['id']} | ΔE={delta_E:.2f} | P={probability:.4f} | T={temperature:.2f}")
+        else:
+            print(f"Iter {current_iteration+1}: [REJECT] {barang_i_temp['id']} ↔ {barang_j_temp['id']} | ΔE={delta_E:.2f} | P={probability:.4f} | T={temperature:.2f}")
+    
+    temperature         *= alpha
+    current_iteration   += 1
 
-                        delta_E         = new_unused - current_unused
-                        probability     = math.exp(delta_E/temperature) 
-                        
-                        print(f"Delta E: {delta_E}")
-                        print(f"Temperature: {temperature:,.3f}")
-                        print(f"Probability: {probability}")
-                        temperature *= alpha
-                        
-                        if delta_E > 0: # ΔE > 0 akan selalu diambil
-                            kontainer[i][index_i]['barang'] = barang_j_temp
-                            kontainer[j][index_j]['barang'] = barang_i_temp
-                            improvement_found = True
-                            print(f"[!!!Swap!!!]: Swapped {barang_i_temp['id']} ↔ {barang_j_temp['id']} (Waste reduced by {new_total_i - current_total_i})")
-                            
-                        else: # ΔE < 0 akan melihat probability (P)
-                            if random.random() < probability:
-                                kontainer[i][index_i]['barang'] = barang_j_temp
-                                kontainer[j][index_j]['barang'] = barang_i_temp
-                                improvement_found = True
-                                print(f"[!!P-Swap!!]: Swapped {barang_i_temp['id']} ↔ {barang_j_temp['id']} (Waste reduced by {new_total_i - current_total_i})")           
-                        
-                    else: # 100% Capacity break
-                        break
+end_time        = time.time()
+execution_time  = end_time - start_time
 
 # Format print kontainer hasil algoritma Hill-Climbing
 print("\n" + "="*60)
@@ -196,3 +277,41 @@ for idx, container in enumerate(kontainer):
 print("\n" + "="*60)
 print(f"Total Kontainer Digunakan: {len(kontainer)}")
 print("="*60)
+
+print(f"\nSimulated Annealing completed after {current_iteration} iterations.")
+print(f"Final Temperature: {temperature:.2f}")
+print(f"Execution Time: {execution_time:.4f} seconds")
+
+# ==> Final plot of Diagram <==
+
+# Plot 1: Scatter Plot of Probability over Iterations
+plt.ioff()
+
+plt.figure(figsize=(10, 5))
+plt.scatter(iterations, acceptance_probability, c='lightblue', s=20, alpha=0.6, label='Acceptance Probability')
+
+if len(iterations) > 1:
+    z = np.polyfit(iterations, acceptance_probability, 3)  # 3rd degree polynomial
+    p = np.poly1d(z)
+    plt.plot(iterations, p(iterations), 'b-', linewidth=2, label='Trend Line')
+
+plt.xlabel('Iteration', fontsize=12)
+plt.ylabel('Probability', fontsize=12)
+plt.title('Acceptance Probability over Iterations (ΔE < 0)', fontsize=14, fontweight='bold')
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.ylim(-0.02, 1.02)
+plt.tight_layout()
+plt.show()
+
+
+# Plot 2: 
+plt.figure(figsize=(10, 5))
+plt.plot(range(len(history_POF)), history_POF, 'r-', linewidth=2, label='Objective Function Value')
+plt.xlabel('Iteration', fontsize=12)
+plt.ylabel('Objective Function Value', fontsize=12)
+plt.title('Objective Function (POF) over Iterations', fontsize=14, fontweight='bold')
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.tight_layout()
+plt.show()
