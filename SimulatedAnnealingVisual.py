@@ -12,9 +12,6 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Set random seed for consistent results
-random.seed(42)
-
 # ======================
 # Load JSON File
 # ======================
