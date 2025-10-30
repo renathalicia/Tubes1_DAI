@@ -3,16 +3,17 @@ import random
 import math
 import json
 import sys
-
-# Load data from JSON file
 import os
+import matplotlib.pyplot as plt
+import numpy as np
+import time
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Check JSON File
 if len(sys.argv) > 1:
     json_filename = sys.argv[1]
 else:
-    json_filename = 'case1.json'  # Default 
+    json_filename = 'case6.json'
 
 json_path = os.path.join(script_dir, json_filename)
 
@@ -22,8 +23,6 @@ try:
     print(f"Using JSON file: {json_filename}")
 except FileNotFoundError:
     print(f"Error: {json_filename} not found!")
-    print("Usage: python3 GeneticAlgorithm.py [json_filename]")
-    print("Example: python3 GeneticAlgorithm.py case2.json")
     sys.exit(1)
 
 # Variable Library
@@ -32,10 +31,6 @@ barang                = data['barang'].copy()         # ID Barang -- Kode unik s
 jumlah_barang         = len(barang)                   # Jumlah Barang di current problem.
 kontainer             = []                            # Kontainer untuk menyimpan barang yang ada.
 kontainer_id          = 0                             # ID Kontainer untuk keeptrack array.
-
-# Min & Max varibel untuk menentukan ΔEₘₐₓ sebagai T₀ sesuai approach oleh Kirkpatirc et al.
-min_ukuran = min(item['ukuran'] for item in barang)
-max_ukuran = max(item['ukuran'] for item in barang)
 
 print(f"Loaded data from JSON file:")
 print(f"Kapasitas kontainer: {kapasitas_kontainer} kg/m³")
@@ -82,9 +77,9 @@ for idx, container in enumerate(kontainer):
     total_ukuran = 0
     
     for item in container:
-        barang_i_tempnfo = item['barang']
-        print(f"  - ID: {barang_i_tempnfo['id']}, Ukuran: {barang_i_tempnfo['ukuran']} kg/m³")
-        total_ukuran += barang_i_tempnfo['ukuran']
+        barang_i_temp = item['barang']
+        print(f"  - ID: {barang_i_temp['id']}, Ukuran: {barang_i_temp['ukuran']} kg/m³")
+        total_ukuran += barang_i_temp['ukuran']
     
     sisa_kapasitas = kapasitas_kontainer - total_ukuran
     print(f"  Total Terisi: {total_ukuran}/{kapasitas_kontainer} kg/m³")
@@ -155,42 +150,6 @@ def calculate_objective_function(kromosom, barang, kapasitas): # Objective funct
 
 main_objective_function = calculate_objective_function(main_kromosom, barang_unrandomized, kapasitas_kontainer)
 
-
-def generate_candidate_partner(main_kromosom): # Membuat sequence dari candidate partner yang didapatkan dengan memanipulasi main kromosom.
-    if not main_kromosom:
-        return []
-    
-    if main_kromosom:
-        K_max     = max(main_kromosom)
-    else:
-        K_max     = 1
-        
-    partner       = main_kromosom.copy()
-    mutation_type = random.choice(['swap', 'move', 'shuffle'])
-    
-    if mutation_type == 'swap':
-        if len(partner) >= 2:
-            idx_1, idx_2 = random.sample(range(len(partner)), 2)
-            partner[idx_1], partner[idx_2] = partner[idx_2], partner[idx_1]
-            
-            
-    elif mutation_type == 'move':
-        idx           = random.randint(0, len(partner) - 1)
-        new_container = random.randint(1, K_max + 1)
-        partner[idx]  = new_container
-        
-        
-    elif mutation_type == 'shuffle':
-        if len(partner) >= 2:
-            start   = random.randint(0, len(partner) - 2)
-            end     = random.randint(start + 1, len(partner))
-            segment = partner[start:end]
-            
-            random.shuffle(segment)
-            partner[start:end] = segment
-    
-    return partner
-
 def parent_crossover(parent_a, parent_b):
     if len(parent_a) != len(parent_b):
         raise ValueError("Parents must have the same length for crossover.")
@@ -218,91 +177,170 @@ def mutate_offspring(offspring, mutation_rate):
     
     return mutated
 
-MAX_ITERATIONS = 10
-MUTATION_RATE  = 0.1
-
-best_POF, _, _, _ = main_objective_function
-
-for i in range (MAX_ITERATIONS):
-    candidate_partner = [] # Array of Candidate Partners
-    candidate_POF     = [] # Array of Objective Function each Candidate Partners
+def repair_offspring(offspring, barang, kapasitas):
+    if not offspring:
+        return offspring
     
-    for _ in range (3):
-        partner         = generate_candidate_partner(main_kromosom)
-        if not partner:
-            continue
-        POF, _, _, _    = calculate_objective_function(partner, barang_unrandomized, kapasitas_kontainer)
-        candidate_partner.append(partner)     
-        candidate_POF.append(POF)
+    K_max = max(offspring) if offspring else 1
+    containers = [[] for _ in range(K_max)]
     
-    if not candidate_partner:
-        print("No candidates generated! Stopping Algorithm!")
-        break
+    for i, container_num in enumerate(offspring):
+        if container_num <= K_max:
+            containers[container_num - 1].append((i, barang[i]['ukuran']))
     
-    candidate_idx = int(min(range(len(candidate_POF)), key=lambda x: candidate_POF[x]))
+    repaired = offspring.copy()
     
-    choosen_partner = candidate_partner[candidate_idx]
-    
-    offspring       = parent_crossover(main_kromosom, choosen_partner)
-    offspring       = mutate_offspring(offspring, MUTATION_RATE)
-    
-    offspring_POF, offspring_K, offspring_overflow, offspring_density = calculate_objective_function(offspring, barang_unrandomized, kapasitas_kontainer)
-    
-    main_kromosom_POF, _, _, _ = main_objective_function
-    
-    print(f"Iter {i+1}: parent_cost={main_kromosom_POF:.2f}, candidate_cost={candidate_POF[candidate_idx]:.2f}, offspring_cost={offspring_POF:.2f}, K={offspring_K}, overflow={offspring_overflow}")
-    
-    if offspring_POF < main_kromosom_POF:
-        main_kromosom           = offspring
-        main_objective_function = (offspring_POF, offspring_K, offspring_overflow, offspring_density)
-        best_POF                = offspring_POF
+    for container_idx, container in enumerate(containers):
+        total_size = sum(item[1] for item in container)
         
+        if total_size > kapasitas:
+            items_sorted = sorted(container, key=lambda x: x[1], reverse=True)
+            
+            for item_idx, item_size in items_sorted:
+                current_total = sum(item[1] for item in container if item[0] != item_idx)
+                
+                if current_total <= kapasitas:
+                    placed = False
+                    for target_bin in range(len(containers)):
+                        if target_bin != container_idx:
+                            target_total = sum(item[1] for item in containers[target_bin])
+                            if target_total + item_size <= kapasitas:
+                                repaired[item_idx] = target_bin + 1
+                                containers[target_bin].append((item_idx, item_size))
+                                placed = True
+                                break
+                    
+                    if not placed:
+                        K_max += 1
+                        repaired[item_idx] = K_max
+                        containers.append([(item_idx, item_size)])
+                    
+                    # Remove from current container
+                    container = [item for item in container if item[0] != item_idx]
+    
+    return repaired
+
+# Variable Library for Genetic Algorithm
+POPULATION_SIZE = 50
+MAX_ITERATIONS  = 200
+MUTATION_RATE   = 0.15  
+TOURNAMENT_SIZE = 5
+
+population = []
+population.append(main_kromosom.copy())
+
+for _ in range(POPULATION_SIZE - 1):
+    random_kromosom = []
+    if barang_unrandomized:
+        K_max = len(kontainer)
+    else:
+        K_max = 1
+    
+    for item in barang_unrandomized:
+        random_kromosom.append(random.randint(1, K_max + 2))
+    
+    population.append(random_kromosom)
+
+def tournament_selection(population, barang, kapasitas, tournament_size):
+    tournament = random.sample(population, min(tournament_size, len(population)))
+    
+    best = tournament[0]
+    best_fitness, _, _, _ = calculate_objective_function(best, barang, kapasitas)
+    
+    for individual in tournament[1:]:
+        fitness, _, _, _ = calculate_objective_function(individual, barang, kapasitas)
+        if fitness < best_fitness:
+            best = individual
+            best_fitness = fitness
+    
+    return best.copy()
+
+best_kromosom = None
+best_fitness = float('inf')
+
+# Variable for diagram purposes
+iterations  = []
+history_POF = []
+improvement_count = 0
+
+print("\n" + "="*60)
+print("GENETIC ALGORITHM - STARTING")
+print("="*60)
+
+start_time = time.time()
+
+for iteration in range(MAX_ITERATIONS):
+    fitness_scores = []
+    for individual in population:
+        fitness, _, _, _ = calculate_objective_function(individual, barang_unrandomized, kapasitas_kontainer)
+        fitness_scores.append(fitness)
+    
+    min_fitness_idx = fitness_scores.index(min(fitness_scores))
+    current_best_fitness = fitness_scores[min_fitness_idx]
+    
+    avg_fitness = sum(fitness_scores) / len(fitness_scores)
+    worst_fitness = max(fitness_scores)
+    
+    if current_best_fitness < best_fitness:
+        best_fitness = current_best_fitness
+        best_kromosom = population[min_fitness_idx].copy()
+        improvement_count += 1
         
+        best_cost, best_K, best_overflow, best_density = calculate_objective_function(
+            best_kromosom, barang_unrandomized, kapasitas_kontainer
+        )
+        
+        print(f"[IMPROVEMENT #{improvement_count}] Iter {iteration+1}: fitness={best_fitness:.2f}, K={best_K}, overflow={best_overflow}")
+    
+    iterations.append(iteration + 1)
+    history_POF.append(best_fitness)
+    
+    new_population = []
+    
+    new_population.append(best_kromosom.copy())
+    
+    while len(new_population) < POPULATION_SIZE:
+        parent1 = tournament_selection(population, barang_unrandomized, kapasitas_kontainer, TOURNAMENT_SIZE)
+        parent2 = tournament_selection(population, barang_unrandomized, kapasitas_kontainer, TOURNAMENT_SIZE)
+        
+        offspring = parent_crossover(parent1, parent2)
+        offspring = mutate_offspring(offspring, MUTATION_RATE)
+        offspring = repair_offspring(offspring, barang_unrandomized, kapasitas_kontainer)  
+        
+        new_population.append(offspring)
+    
+    population = new_population
+
+end_time = time.time()
+execution_time = end_time - start_time
+
+print("\n" + "="*60)
+print("GENETIC ALGORITHM - COMPLETED")
+print(f"Execution Time: {execution_time:.4f} seconds ({execution_time*1000:.2f} ms)")
+print(f"Total Improvements: {improvement_count}")
+print("="*60)
+
 print("\n" + "="*60)
 print("FINAL RESULT")
 print("="*60)
-print(f"Best Cost: {best_POF:.2f}")
-print(f"Final Kromosom: {main_kromosom}")
+print(f"Best Fitness: {best_fitness:.2f}")
+print(f"Number of Bins: {best_K}")
+print(f"Total Overflow: {best_overflow}")
+print(f"Density Score: {best_density:.4f}")
+print(f"Final Kromosom: {best_kromosom}")
 print("="*60)
 
-# Reconstruct containers from final kromosom
-final_K = max(main_kromosom) if main_kromosom else 0
-final_containers = [[] for _ in range(final_K)]
+# ==> Final plot of Diagram <==
+plt.ioff()
 
-for i, container_num in enumerate(main_kromosom):
-    final_containers[container_num - 1].append({
-        'barang': barang_unrandomized[i]
-    })
+# Plot 1: Objective Function over Iterations
+plt.figure(figsize=(10, 5))
+plt.plot(iterations, history_POF, 'b-', linewidth=2, label='Best Fitness')
+plt.xlabel('Iteration', fontsize=12)
+plt.ylabel('Fitness (Lower is Better)', fontsize=12)
+plt.title('Genetic Algorithm - Fitness Evolution', fontsize=14, fontweight='bold')
+plt.grid(True, alpha=0.3)
+plt.legend()
 
-# Print final container arrangement
-print("\n" + "="*60)
-print("FINAL CONTAINER ARRANGEMENT (AFTER GENETIC ALGORITHM)")
-print("="*60)
-
-for idx, container in enumerate(final_containers):
-    print(f"\nKontainer {idx + 1}:")
-    total_ukuran = 0
-    
-    for item in container:
-        barang_info = item['barang']
-        print(f"  - ID: {barang_info['id']}, Ukuran: {barang_info['ukuran']} kg/m³")
-        total_ukuran += barang_info['ukuran']
-    
-    sisa_kapasitas = kapasitas_kontainer - total_ukuran
-    overflow = max(0, total_ukuran - kapasitas_kontainer)
-    
-    print(f"  Total Terisi: {total_ukuran}/{kapasitas_kontainer} kg/m³")
-    print(f"  Sisa Kapasitas: {sisa_kapasitas} kg/m³")
-    
-    if overflow > 0:
-        print(f"  ⚠️ OVERFLOW: {overflow} kg/m³")
-    
-    print(f"  Efisiensi: {(total_ukuran/kapasitas_kontainer)*100:.2f}%")
-
-print("\n" + "="*60)
-print(f"Total Kontainer Digunakan: {len(final_containers)}")
-final_cost, final_K_check, final_overflow, final_density = main_objective_function
-print(f"Final Cost: {final_cost:.2f}")
-print(f"Total Overflow: {final_overflow}")
-print(f"Density Score: {final_density:.4f}")
-print("="*60)
+plt.tight_layout()
+plt.show()
