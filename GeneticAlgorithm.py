@@ -4,9 +4,6 @@ import math
 import json
 import sys
 
-# Set random seed for consistent results
-random.seed(42)
-
 # Load data from JSON file
 import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
