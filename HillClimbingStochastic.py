@@ -2,19 +2,15 @@
 import random
 import json
 import sys
-
-# Set random seed for consistent results
-random.seed(42)
-
-# Load data from JSON file
 import os
+import time
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Check JSON File
 if len(sys.argv) > 1:
     json_filename = sys.argv[1]
 else:
-    json_filename = 'case1.json'  # Default 
+    json_filename = 'case3.json'  # Default 
 
 json_path = os.path.join(script_dir, json_filename)
 
@@ -109,9 +105,12 @@ def calculate_unused(kontainer, kapasitas):
 
 
 # ==> Hill Climbing Search Algorithm Starting Here <==
-current_iteration = 0
-max_iterations    = 4
+start_time = time.time()
+
+current_iteration   = 0
+max_iterations      = 1000
 improvement_found   = True
+total_improvements  = 0
 
 # THIS CAN BE REMOVED(?), MAKE SURE FIRST!
 while improvement_found and current_iteration < max_iterations:
@@ -126,67 +125,75 @@ while improvement_found and current_iteration < max_iterations:
                     possible_swaps.append((i, j, index_i, index_j))
                     
     random.shuffle(possible_swaps) # Untuk pemilihan neighbor random
-    current_iteration = 0
-    
-    for current_swap in possible_swaps:
-        if current_iteration >= max_iterations: # Max Iterations break
+           
+    for i, j, index_i, index_j in possible_swaps:
+        current_iteration += 1
+        
+        if current_iteration >= max_iterations: # Max iterations edge case
             break
         
-        i, j, index_i, index_j = current_swap
-              
         current_total_i = calculate_kontainer_total(kontainer[i]) # Hanya berfokus pada peningkatan value dari barang I.
+        current_total_j = calculate_kontainer_total(kontainer[j])
+
+        if current_total_i >= kapasitas_kontainer: # IF sudah 100% capacity, THEN continue to new variable.
+            continue
+            
+            
+        # Barang variable (current)
+        barang_i_temp   = kontainer[i][index_i]['barang']
+        barang_j_temp   = kontainer[j][index_j]['barang']
         
-        if current_total_i < kapasitas_kontainer: # IF sudah 100% capacity, THEN continue to new variable.
-            current_iteration += 1
-            print(f"Iteration {current_iteration}")
+        # New total variable IF swaps happens                 
+        new_total_i     = current_total_i - barang_i_temp['ukuran'] + barang_j_temp['ukuran']
+        new_total_j     = current_total_j - barang_j_temp['ukuran'] + barang_i_temp['ukuran']
+                            
+        if new_total_i > kapasitas_kontainer and new_total_j > kapasitas_kontainer: # Overflow countermeassure
+            continue
+                                    
+        if (kapasitas_kontainer - new_total_i) < (kapasitas_kontainer - current_total_i): # Change Here untuk Sideways Modifcation, Current Algorithm is Steepest (Neighbor [>]BETTER[>] Current)
+            kontainer[i][index_i]['barang'] = barang_j_temp
+            kontainer[j][index_j]['barang'] = barang_i_temp
             
-            current_total_j = calculate_kontainer_total(kontainer[j])
+            improvement_found   = True
+            total_improvements += 1
             
-            # Barang variable (current)
-            barang_i_temp   = kontainer[i][index_i]['barang']
-            barang_j_temp   = kontainer[j][index_j]['barang']
-            
-            # New total variable IF swaps happens                 
-            new_total_i     = current_total_i - barang_i_temp['ukuran'] + barang_j_temp['ukuran']
-            new_total_j     = current_total_j - barang_j_temp['ukuran'] + barang_i_temp['ukuran']
-                                
-            if new_total_i <= kapasitas_kontainer and new_total_j <= kapasitas_kontainer: # Overflow countermeassure
-                                        
-                if (kapasitas_kontainer - new_total_i) < (kapasitas_kontainer - current_total_i): # Change Here untuk Sideways Modifcation, Current Algorithm is Steepest (Neighbor [>]BETTER[>] Current)
-                    kontainer[i][index_i]['barang'] = barang_j_temp
-                    kontainer[j][index_j]['barang'] = barang_i_temp
-                    improvement_found = True
-                    print(f"[!!!Swap!!!]: Swapped {barang_i_temp['id']} ↔ {barang_j_temp['id']} (Waste reduced by {new_total_i - current_total_i})")
-                    current_iteration = 0
-                
-                else: # Local Maxima break
-                    break
-                
-            else: # Overflow break
-                break
-            
-        else: # 100% Capacity break
+            print(f"Iter {current_iteration}: Swapped {barang_i_temp['id']} ↔ {barang_j_temp['id']}")
+            print(f"[!!!Swap!!!]: Swapped {barang_i_temp['id']} ↔ {barang_j_temp['id']} (Waste reduced by {new_total_i - current_total_i})")
+                        
             break
+        
+    if not improvement_found:
+        print(f"\nNo more improvements found with {current_iteration} iterations")
+        print("Local maximum has been reached!")
+        
+end_time        = time.time()
+execution_time  = end_time - start_time
 
 # Format print kontainer hasil algoritma Hill-Climbing
-print("\n" + "="*60)
-print("HASIL PENYIMPANAN BARANG DALAM KONTAINER")
-print("="*60)
+# print("\n" + "="*60)
+# print("HASIL PENYIMPANAN BARANG DALAM KONTAINER")
+# print("="*60)
 
-for idx, container in enumerate(kontainer):
-    print(f"\nKontainer {idx + 1}:")
-    total_ukuran = 0
+# for idx, container in enumerate(kontainer):
+#     print(f"\nKontainer {idx + 1}:")
+#     total_ukuran = 0
     
-    for item in container:
-        barang_i_tempnfo = item['barang']
-        print(f"  - ID: {barang_i_tempnfo['id']}, Ukuran: {barang_i_tempnfo['ukuran']} kg/m³")
-        total_ukuran += barang_i_tempnfo['ukuran']
+#     for item in container:
+#         barang_i_tempnfo = item['barang']
+#         print(f"  - ID: {barang_i_tempnfo['id']}, Ukuran: {barang_i_tempnfo['ukuran']} kg/m³")
+#         total_ukuran += barang_i_tempnfo['ukuran']
     
-    sisa_kapasitas = kapasitas_kontainer - total_ukuran
-    print(f"  Total Terisi: {total_ukuran}/{kapasitas_kontainer} kg/m³")
-    print(f"  Sisa Kapasitas: {sisa_kapasitas} kg/m³")
-    print(f"  Efisiensi: {(total_ukuran/kapasitas_kontainer)*100:.2f}%")
+#     sisa_kapasitas = kapasitas_kontainer - total_ukuran
+#     print(f"  Total Terisi: {total_ukuran}/{kapasitas_kontainer} kg/m³")
+#     print(f"  Sisa Kapasitas: {sisa_kapasitas} kg/m³")
+#     print(f"  Efisiensi: {(total_ukuran/kapasitas_kontainer)*100:.2f}%")
+
+# print("\n" + "="*60)
+# print(f"Total Kontainer Digunakan: {len(kontainer)}")
+# print("="*60)
 
 print("\n" + "="*60)
-print(f"Total Kontainer Digunakan: {len(kontainer)}")
+print(f"Total Iterations: {current_iteration}")
+print(f"Total Improvements: {total_improvements}")
+print(f"Execution Time: {execution_time:.4f} seconds ({execution_time*1000:.2f} ms)")
 print("="*60)

@@ -190,7 +190,7 @@ print(f"Min Temperature: {min_temperature}")
 print(f"Max Iterations: {max_iterations}")
 print("="*60)
 
-# This Simulated Annealing uses a geometric/exponential cooling approach
+# This Simulated Annealing uses a geometric cooling approach
 # ---------------------------- Tₖ₊₁ = α * Tₖ ----------------------------
 
 while temperature > min_temperature and current_iteration < max_iterations:
