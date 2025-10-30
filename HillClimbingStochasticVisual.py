@@ -1,7 +1,3 @@
-# ==========================================
-# Visualisasi Hill Climbing Stochastic
-# ==========================================
-
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
@@ -60,7 +56,6 @@ class HillClimbingStochasticVisualizer:
                 sisa_kapasitas -= barang_terpilih['ukuran']
                 barang_copy.pop(random_index)
             else:
-                # Buat kontainer baru
                 kontainer_id += 1
                 kontainer.append([])
                 sisa_kapasitas = self.kapasitas
@@ -133,12 +128,11 @@ class HillClimbingStochasticVisualizer:
         return total
     
     def calculate_objective_function(self, kontainer, kapasitas):
-        # Penalty Definitions
         P_OVERFLOW = 1000
         P_BINS     = 1.0
         P_DENSITY  = 0.1
         
-        K = len(kontainer)  # Number of containers
+        K = len(kontainer)  # banyak container
         
         total_overflow          = 0
         sum_squared_fill_ratios = 0
@@ -146,11 +140,11 @@ class HillClimbingStochasticVisualizer:
         for container in kontainer:
             total_size = self.calculate_kontainer_total(container)
             
-            if total_size > kapasitas:  # Overflow penalty
+            if total_size > kapasitas:  # penalty overflow
                 overflow        = total_size - kapasitas
                 total_overflow += overflow
             
-            if len(container) > 0:  # Fill ratio
+            if len(container) > 0:  
                 fill_ratio               = total_size / kapasitas
                 sum_squared_fill_ratios += fill_ratio ** 2
         
@@ -170,17 +164,14 @@ class HillClimbingStochasticVisualizer:
         self.save_snapshot(kontainer_awal, 0, initial_tersisa)
         
         print(f"Jumlah kontainer: {len(kontainer_awal)}")
-        
-        # Variables untuk algoritma
+       
         current_iteration = 0
         max_iterations = 10
         improvement_found = True
         total_improvements = 0
         
-        # THIS CAN BE REMOVED(?), MAKE SURE FIRST!
         while improvement_found and current_iteration < max_iterations:
             improvement_found = False
-        # THIS CAN BE REMOVED(?), MAKE SURE FIRST!
         
             possible_swaps = []
             for i in range(len(kontainer_awal)):
@@ -192,33 +183,30 @@ class HillClimbingStochasticVisualizer:
             if not possible_swaps:
                 break
             
-            random.shuffle(possible_swaps)  # Untuk pemilihan neighbor random
+            random.shuffle(possible_swaps) 
             current_iteration = 0
             
             for current_swap in possible_swaps:
-                if current_iteration >= max_iterations:  # Max Iterations break
+                if current_iteration >= max_iterations: 
                     break
                 
                 i, j, index_i, index_j = current_swap
                 
-                current_total_i = self.calculate_kontainer_total(kontainer_awal[i])  # Hanya berfokus pada peningkatan value dari barang I.
-                
-                if current_total_i < self.kapasitas:  # IF sudah 100% capacity, THEN continue to new variable.
+                current_total_i = self.calculate_kontainer_total(kontainer_awal[i])  
+                if current_total_i < self.kapasitas:  
                     current_iteration += 1
                     print(f"Iteration {current_iteration}")
                     
                     current_total_j = self.calculate_kontainer_total(kontainer_awal[j])
-                    
-                    # Barang variable (current)
+                  
                     barang_i_temp = kontainer_awal[i][index_i]
                     barang_j_temp = kontainer_awal[j][index_j]
                     
-                    # New total variable IF swaps happens
                     new_total_i = current_total_i - barang_i_temp['ukuran'] + barang_j_temp['ukuran']
                     new_total_j = current_total_j - barang_j_temp['ukuran'] + barang_i_temp['ukuran']
                     
-                    if new_total_i <= self.kapasitas and new_total_j <= self.kapasitas:  # Overflow countermeassure
-                        if (self.kapasitas - new_total_i) < (self.kapasitas - current_total_i):  # Change Here untuk Sideways Modifcation, Current Algorithm is Steepest (Neighbor [>]BETTER[>] Current)
+                    if new_total_i <= self.kapasitas and new_total_j <= self.kapasitas:  
+                        if (self.kapasitas - new_total_i) < (self.kapasitas - current_total_i): 
                             kontainer_awal[i][index_i] = barang_j_temp
                             kontainer_awal[j][index_j] = barang_i_temp
                             improvement_found = True
@@ -227,19 +215,18 @@ class HillClimbingStochasticVisualizer:
                             tersisa_reduction = current_total_i - new_total_i
                             print(f"[!!!Swap!!!]: Swapped {barang_i_temp['id']} ↔ {barang_j_temp['id']} (tersisa reduced by {tersisa_reduction})")
                             
-                            # Save snapshot setelah improvement
                             current_tersisa = self.calculate_objective_function(kontainer_awal, self.kapasitas)
                             self.save_snapshot(kontainer_awal, current_iteration, current_tersisa)
                             
                             current_iteration = 0
                         
-                        else:  # Local Maxima break
+                        else:  
                             continue
                     
-                    else:  # Overflow break
+                    else:  
                         continue
                 
-                else:  # 100% Capacity break
+                else: 
                     continue
         
         self.iteration_count = current_iteration
@@ -316,8 +303,7 @@ class HillClimbingStochasticVisualizer:
                         ax2.text(bar.get_x() + bar.get_width()/2, fills[i] + self.kapasitas*0.005,
                                 f'{efficiency:.0f}%\n(tersisa:{tersisa:.0f})', ha='center', va='bottom', 
                                 fontweight='bold', fontsize=6)
-                    
-                    # Add item labels inside bars
+                
                     if fills[i] > self.kapasitas * 0.15:
                         ax2.text(bar.get_x() + bar.get_width()/2, fills[i]/2,
                                 labels[i], ha='center', va='center', fontsize=6, 

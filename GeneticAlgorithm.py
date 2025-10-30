@@ -1,4 +1,3 @@
-# Import library that's needed
 import random
 import math
 import json
@@ -26,11 +25,11 @@ except FileNotFoundError:
     sys.exit(1)
 
 # Variable Library
-kapasitas_kontainer   = data['kapasitas_kontainer']  # Kapasitas Kontainer di current problem -- Seluruh Kontainer memiliki kapasitas yang sama.
-barang                = data['barang'].copy()         # ID Barang -- Kode unik setiap barang  AND  Ukuran --- Ukuran/Berat barang tersebut.  
-jumlah_barang         = len(barang)                   # Jumlah Barang di current problem.
-kontainer             = []                            # Kontainer untuk menyimpan barang yang ada.
-kontainer_id          = 0                             # ID Kontainer untuk keeptrack array.
+kapasitas_kontainer   = data['kapasitas_kontainer']  # kapasitas kontainer dalam kg/m³
+barang                = data['barang'].copy()         # id barang
+jumlah_barang         = len(barang)                   # jumlah barang
+kontainer             = []                            # kontainer untuk menyimpan barang
+kontainer_id          = 0                             # id kontainer
 
 print(f"Loaded data from JSON file:")
 print(f"Kapasitas kontainer: {kapasitas_kontainer} kg/m³")
@@ -39,20 +38,18 @@ print(f"Barang: {[f"{item['id']}({item['ukuran']})" for item in barang]}")
 
 barang_unrandomized = barang.copy()
 
-# Deklarasi Array Kontainer 
+# declare kontainer array
 kontainer.append([])
 kontainer_space_left = kapasitas_kontainer
 
-# Deklarasi Penyebaran Kontainer secara Random
+# declare penyebaran kontainer secara random
 while True:
     if len(barang) == 0:
         break
         
-    # 1. Pemilihan first arbitrary variabel dari current_container
     random_index   = random.randint(0, len(barang) - 1)
     random_barang  = barang[random_index]
     
-    # 2. IF barang dapat dimasukan (Tidak Overflow)
     if random_barang['ukuran'] <= kontainer_space_left:
         kontainer[kontainer_id].append({
             'barang': random_barang
@@ -61,13 +58,11 @@ while True:
         kontainer_space_left -= random_barang['ukuran']
         barang.pop(random_index)
 
-    # 3. IF overflow, akan membuka kontainer baru
     else:
         kontainer_id += 1
         kontainer.append([])
         kontainer_space_left = kapasitas_kontainer
 
-# Format print kontainer hasil algoritma Hill-Climbing
 print("\n" + "="*60)
 print("SPAWN BARANG DALAM KONTAINER")
 print("="*60)
@@ -90,9 +85,9 @@ print("\n" + "="*60)
 print(f"Total Kontainer Digunakan: {len(kontainer)}")
 print("="*60)
 
-# Variable Library for Genetic Algorithm
-main_kromosom           = []  # Array untuk sequence genetic yang utama (Keep Track)
-main_objective_function = 0   # Objective function dari sequence utama  (Keep Track)
+# variabel untuk GA
+main_kromosom           = []  
+main_objective_function = 0   # objective function untuk kromosom utama
 
 for item_unrandomized in barang_unrandomized:
     for idx_container, container in enumerate(kontainer):
@@ -101,7 +96,6 @@ for item_unrandomized in barang_unrandomized:
                 main_kromosom.append(idx_container + 1)
                 break     
 
-# Print genetic sequence
 print("\n" + "="*60)
 print("GENETIC SEQUENCE (KROMOSOM)")
 print("="*60)
@@ -113,8 +107,7 @@ print(f"\nKromosom: {main_kromosom}")
 print("="*60)
 
 
-def calculate_objective_function(kromosom, barang, kapasitas): # Objective function untuk fitness test
-    # Penalty Definitions
+def calculate_objective_function(kromosom, barang, kapasitas): # objective function untuk fitness test
     P_OVERFLOW = 1000
     P_BINS     = 1.0
     P_DENSITY  = 0.1
@@ -132,14 +125,14 @@ def calculate_objective_function(kromosom, barang, kapasitas): # Objective funct
     total_overflow          = 0
     sum_squared_fill_ratios = 0
     
-    for container in containers: # Check every container yang ada!
+    for container in containers: 
         total_size = sum(container)
         
-        if total_size > kapasitas: # Overflow penalty!
+        if total_size > kapasitas: 
             overflow        = total_size - kapasitas
             total_overflow += overflow
             
-        if len(container) > 0: # Persentase filled kontainer
+        if len(container) > 0: 
             fill_ratio               = total_size / kapasitas
             sum_squared_fill_ratios += fill_ratio ** 2
             
@@ -215,12 +208,11 @@ def repair_offspring(offspring, barang, kapasitas):
                         repaired[item_idx] = K_max
                         containers.append([(item_idx, item_size)])
                     
-                    # Remove from current container
                     container = [item for item in container if item[0] != item_idx]
     
     return repaired
 
-# Variable Library for Genetic Algorithm
+# library untuk genetic algorithm
 POPULATION_SIZE = 50
 MAX_ITERATIONS  = 200
 MUTATION_RATE   = 0.05
@@ -258,7 +250,6 @@ def tournament_selection(population, barang, kapasitas, tournament_size):
 best_kromosom = None
 best_fitness = float('inf')
 
-# Variable for diagram purposes
 iterations  = []
 history_POF = []
 improvement_count = 0
@@ -329,10 +320,9 @@ print(f"Jumlah populasi: {len(population)}")
 print(f"Final Kromosom: {best_kromosom}")
 print("="*60)
 
-# ==> Final plot of Diagram <==
 plt.ioff()
 
-# Plot 1: Objective Function over Iterations
+# plot 1: objective function over iterations
 plt.figure(figsize=(10, 5))
 plt.plot(iterations, history_POF, 'b-', linewidth=2, label='Best Fitness')
 plt.xlabel('Iteration', fontsize=12)

@@ -1,4 +1,3 @@
-# Import library that's needed
 import random
 import math
 import json
@@ -8,11 +7,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
-# Load data from JSON file
 import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Check JSON File
 if len(sys.argv) > 1:
     json_filename = sys.argv[1]
 else:
@@ -31,32 +28,27 @@ except FileNotFoundError:
     sys.exit(1)
 
 # Variable Library
-kapasitas_kontainer   = data['kapasitas_kontainer']   # Kapasitas Kontainer di current problem -- Seluruh Kontainer memiliki kapasitas yang sama.
-barang                = data['barang'].copy()         # ID Barang -- Kode unik setiap barang  AND  Ukuran --- Ukuran/Berat barang tersebut.  
-jumlah_barang         = len(barang)                   # Jumlah Barang di current problem.
-kontainer             = []                            # Kontainer untuk menyimpan barang yang ada.
-kontainer_id          = 0                             # ID Kontainer untuk keeptrack array.
+kapasitas_kontainer   = data['kapasitas_kontainer']   # Kapasitas Kontainer
+barang                = data['barang'].copy()         # ID Barang
+jumlah_barang         = len(barang)                   # Jumlah Barang
+kontainer             = []                            # Kontainer
+kontainer_id          = 0                             # ID Kontainer
 
 print(f"Loaded data from JSON file:")
 print(f"Kapasitas kontainer: {kapasitas_kontainer} kg/m³")
 print(f"Jumlah barang: {jumlah_barang}")
 print(f"Barang: {[f"{item['id']}({item['ukuran']})" for item in barang]}")
 
-# Deklarasi Array Kontainer 
 kontainer.append([])
 kontainer_space_left = kapasitas_kontainer
 
-
-# Deklarasi Penyebaran Kontainer secara Random
 while True:
     if len(barang) == 0:
         break
         
-    # 1. Pemilihan first arbitrary variabel dari current_container
     random_index   = random.randint(0, len(barang) - 1)
     random_barang  = barang[random_index]
     
-    # 2. IF barang dapat dimasukan (Tidak Overflow)
     if random_barang['ukuran'] <= kontainer_space_left:
         kontainer[kontainer_id].append({
             'barang': random_barang
@@ -65,13 +57,11 @@ while True:
         kontainer_space_left -= random_barang['ukuran']
         barang.pop(random_index)
 
-    # 3. IF overflow, akan membuka kontainer baru
     else:
         kontainer_id += 1
         kontainer.append([])
         kontainer_space_left = kapasitas_kontainer
 
-# Format print kontainer hasil algoritma Hill-Climbing
 print("\n" + "="*60)
 print("SPAWN BARANG DALAM KONTAINER")
 print("="*60)
@@ -94,7 +84,6 @@ print("\n" + "="*60)
 print(f"Total Kontainer Digunakan: {len(kontainer)}")
 print("="*60)
 
-# Helper function untuk Hill Climbing Algorithm
 def calculate_kontainer_total(kontainer):
     total = 0
     for arr_barang in kontainer:
@@ -110,12 +99,11 @@ def calculate_unused(kontainer, kapasitas):
     return total_unused
 
 def calculate_objective_function(kontainer, kapasitas):
-    # Penalty Definitions
     P_OVERFLOW = 1000
     P_BINS     = 1.0
     P_DENSITY  = 0.1
     
-    K = len(kontainer)  # Number of containers
+    K = len(kontainer)  
     
     total_overflow          = 0
     sum_squared_fill_ratios = 0
@@ -123,11 +111,11 @@ def calculate_objective_function(kontainer, kapasitas):
     for container in kontainer:
         total_size = calculate_kontainer_total(container)
         
-        if total_size > kapasitas:  # Overflow penalty
+        if total_size > kapasitas: 
             overflow        = total_size - kapasitas
             total_overflow += overflow
         
-        if len(container) > 0:  # Fill ratio
+        if len(container) > 0: 
             fill_ratio               = total_size / kapasitas
             sum_squared_fill_ratios += fill_ratio ** 2
     
@@ -136,11 +124,9 @@ def calculate_objective_function(kontainer, kapasitas):
     return cost, K, total_overflow, sum_squared_fill_ratios
 
 def calculate_initial_temperature(kontainer, kapasitas):
-    # ΔEₘₐₓ sebagai T₀ sesuai approach oleh Kirkpatirc et al.
 
     max_delta_E = 0
-    
-    # Mencari perbedaan dengan adjacent containers (i and i+1)
+
     for i in range(len(kontainer) - 1):
         j = i + 1 
         
@@ -165,12 +151,10 @@ def calculate_initial_temperature(kontainer, kapasitas):
     
     return max_delta_E
 
-# Variable for diagram needs
 acceptance_probability  = []
 iterations              = []
 history_POF             = []
 
-# ==> Simulated Annealing Search Algorithm Starting Here <==
 start_time        = time.time()
 temperature       = calculate_initial_temperature(kontainer, kapasitas_kontainer)
 alpha             = 0.985
@@ -178,7 +162,7 @@ min_temperature   = 0.01
 max_iterations    = 1000
 current_iteration = 0
 
-# Variable for local optimum flag
+# var untuk local optimum
 local_stucked       = 0
 sideways_counter    = 0
 SIDEWAYS_THRESHOLD  = 5
@@ -189,9 +173,6 @@ print(f"Alpha (cooling rate): {alpha}")
 print(f"Min Temperature: {min_temperature}")
 print(f"Max Iterations: {max_iterations}")
 print("="*60)
-
-# This Simulated Annealing uses a geometric cooling approach
-# ---------------------------- Tₖ₊₁ = α * Tₖ ----------------------------
 
 while temperature > min_temperature and current_iteration < max_iterations:
     # Objective Function Data Logging
@@ -209,7 +190,6 @@ while temperature > min_temperature and current_iteration < max_iterations:
         local_stucked += 1
         sideways_counter = 0
     
-    # karena Simulated Annealing menggunakan Stochastic Hill Climbing, maka perlu ditentukan terlebih dahulu
     possible_swaps = []
     for i in range(len(kontainer)):
         for j in range(i + 1, len(kontainer)):
@@ -217,38 +197,32 @@ while temperature > min_temperature and current_iteration < max_iterations:
                 for index_j in range(len(kontainer[j])):
                     possible_swaps.append((i, j, index_i, index_j))
     
-    if not possible_swaps: # Break IF there is no swap possible
+    if not possible_swaps: 
         print("No possible swaps available. Stopping.")
         break
     
-    # Pick one random swap of possible swaps
     i, j, index_i, index_j = random.choice(possible_swaps)
     
     current_total_i = calculate_kontainer_total(kontainer[i])
     current_total_j = calculate_kontainer_total(kontainer[j])
     
-    # Barang variable (current)
     barang_i_temp = kontainer[i][index_i]['barang']
     barang_j_temp = kontainer[j][index_j]['barang']
-    
-    # New total variable IF swaps happens
+
     new_total_i = current_total_i - barang_i_temp['ukuran'] + barang_j_temp['ukuran']
     new_total_j = current_total_j - barang_j_temp['ukuran'] + barang_i_temp['ukuran']
-    
-    # Overflow validation 
+
     if new_total_i <= kapasitas_kontainer and new_total_j <= kapasitas_kontainer:
-        # ΔE calculation --> Current.Value - Neighbor.Value
         current_unused = (kapasitas_kontainer - current_total_i)
         new_unused = (kapasitas_kontainer - new_total_i)
         
         delta_E = new_unused - current_unused
         
-        if delta_E >= 0: # ΔE > 0, THEN Accept
+        if delta_E >= 0: 
             accept = True
-            probability = 1.0 # Actually, P will always be >= 1, but to reduce calculations we can consider it to be 1.
+            probability = 1.0
             
         else:
-            # If ΔE < 0, then calculate P = e^(ΔE/T)
             probability = math.exp(delta_E / temperature)  
             accept      = random.random() < probability
         
@@ -272,7 +246,6 @@ while temperature > min_temperature and current_iteration < max_iterations:
 end_time        = time.time()
 execution_time  = end_time - start_time
 
-# Format print kontainer hasil algoritma Hill-Climbing
 print("\n" + "="*60)
 print("HASIL PENYIMPANAN BARANG DALAM KONTAINER")
 print("="*60)
@@ -301,16 +274,14 @@ print(f"Execution Time: {execution_time:.4f} seconds")
 
 print(f"Current case of Simulated Annealing made {local_stucked} times")
 
-# ==> Final plot of Diagram <==
-
-# Plot 1: Scatter Plot of Probability over Iterations
+# plot 1
 plt.ioff()
 
 plt.figure(figsize=(10, 5))
 plt.scatter(iterations, acceptance_probability, c='lightblue', s=20, alpha=0.6, label='Acceptance Probability')
 
 if len(iterations) > 1:
-    z = np.polyfit(iterations, acceptance_probability, 3)  # 3rd degree polynomial
+    z = np.polyfit(iterations, acceptance_probability, 3) 
     p = np.poly1d(z)
     plt.plot(iterations, p(iterations), 'b-', linewidth=2, label='Trend Line')
 
@@ -324,7 +295,7 @@ plt.tight_layout()
 plt.show()
 
 
-# Plot 2: 
+# plot 2 
 plt.figure(figsize=(10, 5))
 plt.plot(range(len(history_POF)), history_POF, 'r-', linewidth=2, label='Objective Function Value')
 plt.xlabel('Iteration', fontsize=12)

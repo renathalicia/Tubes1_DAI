@@ -1,4 +1,3 @@
-# Import library that's needed
 import random
 import json
 import sys
@@ -26,11 +25,11 @@ except FileNotFoundError:
     sys.exit(1)
 
 # variabel global
-kapasitas_kontainer   = data['kapasitas_kontainer']  # Kapasitas Kontainer di current problem -- Seluruh Kontainer memiliki kapasitas yang sama.
-barang                = data['barang'].copy()         # ID Barang -- Kode unik setiap barang  AND  Ukuran --- Ukuran/Berat barang tersebut.  
-jumlah_barang         = len(barang)                   # Jumlah Barang di current problem.
-kontainer             = []                            # Kontainer untuk menyimpan barang yang ada.
-kontainer_id          = 0                             # ID Kontainer untuk keeptrack array.
+kapasitas_kontainer   = data['kapasitas_kontainer']  # kapasitas kontainer
+barang                = data['barang'].copy()         # id barang 
+jumlah_barang         = len(barang)                   # jumlah barang
+kontainer             = []                            # kontainer
+kontainer_id          = 0                             # id kontainer
 
 print(f"Loaded data from JSON file:")
 print(f"Kapasitas kontainer: {kapasitas_kontainer} kg/m³")
@@ -38,12 +37,9 @@ print(f"Jumlah barang: {jumlah_barang}")
 items_str = [f"{item['id']}({item['ukuran']})" for item in barang]
 print(f"Barang: {items_str}")
 
-# Deklarasi Array Kontainer 
 kontainer.append([])
 kontainer_space_left = kapasitas_kontainer
 
-
-# Deklarasi Penyebaran Kontainer secara Random
 while True:
     if len(barang) == 0:
         break
@@ -86,7 +82,6 @@ print("\n" + "="*60)
 print(f"Total Kontainer Digunakan: {len(kontainer)}")
 print("="*60)
 
-# Helper function 
 def calculate_kontainer_total(kontainer):
     total = 0
     for arr_barang in kontainer:
@@ -110,11 +105,9 @@ def calculate_waste_squared(kontainer_list, kapasitas):
         total += unused * unused
     return total
 
-
-# Persiapan visualisasi (tidak mengubah logika algoritma selain acceptance by global objective)
 initial_state = copy.deepcopy(kontainer)
 
-# inisialisasi variabel untuk recording
+# inisialisasi variabel
 obj_history = [calculate_waste_squared(kontainer, kapasitas_kontainer)]
 total_attempts = 0         # jumlah percobaan swap (evaluasi)
 total_accepted_swaps = 0   # jumlah swap yang diterima (perbaikan)
@@ -131,14 +124,13 @@ while improvement_found and current_iteration < max_iterations:
     improvement_found  = False
 
     for i in range(len(kontainer)):
-        current_iteration = 0 # Menghitung iteration sesuai dengan constraint yang berlaku
+        current_iteration = 0 
         
         for j in range (i + 1, len(kontainer)):
             
-            # Double for-loop untuk mengecek setiap item di kontainer I untuk setiap item di seluruh kontainer kanannya I 
             for index_i in range(len(kontainer[i])):
                 for index_j in range(len(kontainer[j])):
-                    current_total_i = calculate_kontainer_total(kontainer[i]) # Hanya berfokus pada peningkatan value dari barang I.
+                    current_total_i = calculate_kontainer_total(kontainer[i]) 
                     
                     if current_total_i < kapasitas_kontainer and current_iteration < max_iterations:
                         current_iteration += 1
@@ -164,7 +156,7 @@ while improvement_found and current_iteration < max_iterations:
                             after_obj = calculate_waste_squared(kontainer, kapasitas_kontainer)
 
                             if after_obj < before_obj:
-                                # terima swap secara permanen (sudah diterapkan)
+                                # terima swap secara permanen 
                                 improvement_found = True
                                 total_accepted_swaps += 1
                                 obj_history.append(after_obj)
@@ -210,7 +202,7 @@ print("\n" + "="*60)
 print(f"Total Kontainer Digunakan: {len(final_state)}")
 print("="*60)
 
-#Rangkuman
+# summary
 print(f"Durasi proses pencarian: {duration_seconds:.4f} detik")
 print(f"Jumlah percobaan swap (evaluasi): {iterations_until_stop}")
 print(f"Jumlah swap diterima (perbaikan): {swaps_accepted}")
@@ -218,7 +210,7 @@ print(f"Nilai objective awal (sum unused^2): {initial_objective}")
 print(f"Nilai objective akhir (sum unused^2): {final_objective}")
 print(f"Jumlah langkah perbaikan yang tercatat (history length - 1): {len(obj_history)-1}")
 
-# Plot obj value terhadap langkah swap/perbaikan
+# plot obj value terhadap langkah swap/perbaikan
 plt.figure(figsize=(8,4))
 steps = list(range(len(obj_history)))
 plt.plot(steps, obj_history, marker='o')
@@ -231,7 +223,7 @@ plt.tight_layout()
 plt.show()
 plt.close()
 
-#vsual obj func
+# visual obj func
 def plot_state(kontainer_state, kapas, title):
     fig = plt.figure(figsize=(10,5))
     ax = fig.add_subplot(1,1,1)
