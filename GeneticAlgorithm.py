@@ -223,7 +223,7 @@ def repair_offspring(offspring, barang, kapasitas):
 # Variable Library for Genetic Algorithm
 POPULATION_SIZE = 50
 MAX_ITERATIONS  = 200
-MUTATION_RATE   = 0.15  
+MUTATION_RATE   = 0.05
 TOURNAMENT_SIZE = 5
 
 population = []
@@ -324,9 +324,8 @@ print("\n" + "="*60)
 print("FINAL RESULT")
 print("="*60)
 print(f"Best Fitness: {best_fitness:.2f}")
-print(f"Number of Bins: {best_K}")
-print(f"Total Overflow: {best_overflow}")
-print(f"Density Score: {best_density:.4f}")
+print(f"Jumlah iterasi: {MAX_ITERATIONS}")
+print(f"Jumlah populasi: {len(population)}")
 print(f"Final Kromosom: {best_kromosom}")
 print("="*60)
 

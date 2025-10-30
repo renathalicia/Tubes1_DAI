@@ -72,12 +72,12 @@ class HillClimbingStochasticVisualizer:
             return float('inf')
         
         efficiencies = []
-        total_waste = 0
+        total_tersisa = 0
         
         for container in kontainer:
             used = sum(item['ukuran'] for item in container)
-            waste = self.kapasitas - used
-            total_waste += waste
+            tersisa = self.kapasitas - used
+            total_tersisa += tersisa
             
             efficiency = used / self.kapasitas
             efficiencies.append(efficiency)
@@ -88,7 +88,7 @@ class HillClimbingStochasticVisualizer:
         else:
             variance = 0
         
-        objective = total_waste + (variance * 500) + (len(kontainer) * 10)
+        objective = total_tersisa + (variance * 500) + (len(kontainer) * 10)
         
         return objective
     
@@ -132,98 +132,121 @@ class HillClimbingStochasticVisualizer:
             total += item['ukuran']
         return total
     
-    def calculate_unused(self, kontainer, kapasitas):
-        total_unused = 0
+    def calculate_objective_function(self, kontainer, kapasitas):
+        # Penalty Definitions
+        P_OVERFLOW = 1000
+        P_BINS     = 1.0
+        P_DENSITY  = 0.1
+        
+        K = len(kontainer)  # Number of containers
+        
+        total_overflow          = 0
+        sum_squared_fill_ratios = 0
+        
         for container in kontainer:
-            used = self.calculate_kontainer_total(container)
-            unused = kapasitas - used
-            total_unused += unused
-        return total_unused
+            total_size = self.calculate_kontainer_total(container)
+            
+            if total_size > kapasitas:  # Overflow penalty
+                overflow        = total_size - kapasitas
+                total_overflow += overflow
+            
+            if len(container) > 0:  # Fill ratio
+                fill_ratio               = total_size / kapasitas
+                sum_squared_fill_ratios += fill_ratio ** 2
+        
+        cost = (P_OVERFLOW * total_overflow) + (P_BINS * K) - (P_DENSITY * sum_squared_fill_ratios)
+        
+        return cost
+
     
     def run_hill_climbing_stochastic(self):
         print("\n" + "="*50)
         print("HILL CLIMBING STOCHASTIC")
         print("="*50)
         
-        current_solution = self.create_initial_solution()
+        kontainer_awal = self.create_initial_solution()
         
-        initial_waste = self.calculate_unused(current_solution, self.kapasitas)
-        self.save_snapshot(current_solution, 0, initial_waste)
+        initial_tersisa = self.calculate_objective_function(kontainer_awal, self.kapasitas)
+        self.save_snapshot(kontainer_awal, 0, initial_tersisa)
         
-        print(f"Solusi awal - Total waste: {initial_waste}")
-        print(f"Jumlah kontainer: {len(current_solution)}")
+        print(f"Jumlah kontainer: {len(kontainer_awal)}")
         
         # Variables untuk algoritma
         current_iteration = 0
-        max_iterations = 1000
+        max_iterations = 10
         improvement_found = True
         total_improvements = 0
         
+        # THIS CAN BE REMOVED(?), MAKE SURE FIRST!
         while improvement_found and current_iteration < max_iterations:
             improvement_found = False
-            
-            # Generate semua possible swaps
+        # THIS CAN BE REMOVED(?), MAKE SURE FIRST!
+        
             possible_swaps = []
-            for i in range(len(current_solution)):
-                for j in range(i + 1, len(current_solution)):
-                    for index_i in range(len(current_solution[i])):
-                        for index_j in range(len(current_solution[j])):
+            for i in range(len(kontainer_awal)):
+                for j in range(i + 1, len(kontainer_awal)):
+                    for index_i in range(len(kontainer_awal[i])):
+                        for index_j in range(len(kontainer_awal[j])):
                             possible_swaps.append((i, j, index_i, index_j))
             
             if not possible_swaps:
                 break
             
             random.shuffle(possible_swaps)  # Untuk pemilihan neighbor random
+            current_iteration = 0
             
-            for i, j, index_i, index_j in possible_swaps:
-                current_iteration += 1
-                
-                if current_iteration >= max_iterations:  # Max iterations edge case
+            for current_swap in possible_swaps:
+                if current_iteration >= max_iterations:  # Max Iterations break
                     break
                 
-                current_total_i = self.calculate_kontainer_total(current_solution[i])
-                current_total_j = self.calculate_kontainer_total(current_solution[j])
+                i, j, index_i, index_j = current_swap
                 
-                if current_total_i >= self.kapasitas:  # IF sudah 100% capacity, THEN continue
+                current_total_i = self.calculate_kontainer_total(kontainer_awal[i])  # Hanya berfokus pada peningkatan value dari barang I.
+                
+                if current_total_i < self.kapasitas:  # IF sudah 100% capacity, THEN continue to new variable.
+                    current_iteration += 1
+                    print(f"Iteration {current_iteration}")
+                    
+                    current_total_j = self.calculate_kontainer_total(kontainer_awal[j])
+                    
+                    # Barang variable (current)
+                    barang_i_temp = kontainer_awal[i][index_i]
+                    barang_j_temp = kontainer_awal[j][index_j]
+                    
+                    # New total variable IF swaps happens
+                    new_total_i = current_total_i - barang_i_temp['ukuran'] + barang_j_temp['ukuran']
+                    new_total_j = current_total_j - barang_j_temp['ukuran'] + barang_i_temp['ukuran']
+                    
+                    if new_total_i <= self.kapasitas and new_total_j <= self.kapasitas:  # Overflow countermeassure
+                        if (self.kapasitas - new_total_i) < (self.kapasitas - current_total_i):  # Change Here untuk Sideways Modifcation, Current Algorithm is Steepest (Neighbor [>]BETTER[>] Current)
+                            kontainer_awal[i][index_i] = barang_j_temp
+                            kontainer_awal[j][index_j] = barang_i_temp
+                            improvement_found = True
+                            total_improvements += 1
+                            
+                            tersisa_reduction = current_total_i - new_total_i
+                            print(f"[!!!Swap!!!]: Swapped {barang_i_temp['id']} ↔ {barang_j_temp['id']} (tersisa reduced by {tersisa_reduction})")
+                            
+                            # Save snapshot setelah improvement
+                            current_tersisa = self.calculate_objective_function(kontainer_awal, self.kapasitas)
+                            self.save_snapshot(kontainer_awal, current_iteration, current_tersisa)
+                            
+                            current_iteration = 0
+                        
+                        else:  # Local Maxima break
+                            continue
+                    
+                    else:  # Overflow break
+                        continue
+                
+                else:  # 100% Capacity break
                     continue
-                
-                # Barang variable (current)
-                barang_i_temp = current_solution[i][index_i]
-                barang_j_temp = current_solution[j][index_j]
-                
-                # New total variable IF swaps happens
-                new_total_i = current_total_i - barang_i_temp['ukuran'] + barang_j_temp['ukuran']
-                new_total_j = current_total_j - barang_j_temp['ukuran'] + barang_i_temp['ukuran']
-                
-                if new_total_i > self.kapasitas or new_total_j > self.kapasitas:  # Overflow countermeassure
-                    continue
-                
-                if (self.kapasitas - new_total_i) < (self.kapasitas - current_total_i):
-                    
-                    current_solution[i][index_i] = barang_j_temp
-                    current_solution[j][index_j] = barang_i_temp
-                    
-                    improvement_found = True
-                    total_improvements += 1
-                    
-                    waste_reduction = (self.kapasitas - current_total_i) - (self.kapasitas - new_total_i)
-                    print(f"Iter {current_iteration}: Swapped {barang_i_temp['id']} ↔ {barang_j_temp['id']}")
-                    print(f"  Waste reduced by {waste_reduction}")
-                    
-                    current_waste = self.calculate_unused(current_solution, self.kapasitas)
-                    self.save_snapshot(current_solution, current_iteration, current_waste)
-                    
-                    break
-            
-            if not improvement_found:
-                print(f"\nNo more improvements found with {current_iteration} iterations")
-                print("Local maximum has been reached!")
         
         self.iteration_count = current_iteration
         print(f"\nTotal Iterations: {current_iteration}")
         print(f"Total Improvements: {total_improvements}")
         
-        return current_solution
+        return kontainer_awal
     
     def create_visualization(self):
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6), num=f'Hill Climbing Stochastic - {self.json_filename}')
@@ -245,13 +268,13 @@ class HillClimbingStochasticVisualizer:
             ax1.plot(range(frame + 1), self.objective_values[:frame + 1], 'b-', linewidth=2, marker='o')
             ax1.set_title(f'Hill Climbing Stochastic - {self.json_filename}', fontsize=10)
             ax1.set_xlabel('Iterasi', fontsize=9)
-            ax1.set_ylabel('Total Waste', fontsize=9)
+            ax1.set_ylabel('Objective Function: ', fontsize=9)
             ax1.grid(True, alpha=0.3)
             ax1.tick_params(axis='both', which='major', labelsize=8)
             
             ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
             
-            ax1.text(0.02, 0.98, f'Iterasi: {iteration} | Total Waste: {objective:.2f}', 
+            ax1.text(0.02, 0.98, f'Iterasi: {iteration} | Objective Function: {objective:.2f}', 
                     transform=ax1.transAxes, fontsize=9, va='top',
                     bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.7))
             
@@ -288,10 +311,10 @@ class HillClimbingStochasticVisualizer:
                 
                 for i, bar in enumerate(bars):
                     efficiency = (fills[i] / self.kapasitas) * 100
-                    waste = self.kapasitas - fills[i]
+                    tersisa = self.kapasitas - fills[i]
                     if efficiency > 0:
                         ax2.text(bar.get_x() + bar.get_width()/2, fills[i] + self.kapasitas*0.005,
-                                f'{efficiency:.0f}%\n(waste:{waste:.0f})', ha='center', va='bottom', 
+                                f'{efficiency:.0f}%\n(tersisa:{tersisa:.0f})', ha='center', va='bottom', 
                                 fontweight='bold', fontsize=6)
                     
                     # Add item labels inside bars
@@ -327,15 +350,15 @@ class HillClimbingStochasticVisualizer:
         print(f"Total snapshots: {len(self.snapshots)}")
         
         if self.objective_values:
-            initial_waste = self.objective_values[0]
-            final_waste = self.objective_values[-1]
-            best_waste = min(self.objective_values)
-            best_iteration = self.objective_values.index(best_waste)
+            initial_tersisa = self.objective_values[0]
+            final_tersisa = self.objective_values[-1]
+            best_tersisa = min(self.objective_values)
+            best_iteration = self.objective_values.index(best_tersisa)
             
-            print(f"\nWaste awal: {initial_waste:.2f}")
-            print(f"Waste akhir: {final_waste:.2f}")
-            print(f"Waste terbaik: {best_waste:.2f} (iterasi {best_iteration})")
-            print(f"Total improvement: {initial_waste - final_waste:.2f}")
+            print(f"\Objective awal: {initial_tersisa:.2f}")
+            print(f"Objective akhir: {final_tersisa:.2f}")
+            print(f"Objective terbaik: {best_tersisa:.2f} (iterasi {best_iteration})")
+            print(f"Total improvement: {initial_tersisa - final_tersisa:.2f}")
         
         final_solution = self.snapshots[-1]['kontainer']
         efficiencies = []
