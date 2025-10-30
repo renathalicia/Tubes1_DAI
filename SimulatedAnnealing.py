@@ -174,9 +174,15 @@ history_POF             = []
 start_time        = time.time()
 temperature       = calculate_initial_temperature(kontainer, kapasitas_kontainer)
 alpha             = 0.985
-min_temperature   = 0.1
+min_temperature   = 0.01
 max_iterations    = 1000
 current_iteration = 0
+
+# Variable for local optimum flag
+local_stucked       = 0
+sideways_counter    = 0
+SIDEWAYS_THRESHOLD  = 5
+last_changed_POF    = float('-inf')
 
 print(f"\nInitial Temperature (T₀): {temperature:.2f}")
 print(f"Alpha (cooling rate): {alpha}")
@@ -191,6 +197,17 @@ while temperature > min_temperature and current_iteration < max_iterations:
     # Objective Function Data Logging
     current_POF, _, _, _ = calculate_objective_function(kontainer, kapasitas_kontainer)
     history_POF.append(current_POF)
+    
+    if last_changed_POF != current_POF:
+        last_changed_POF = current_POF
+        sideways_counter = 0
+    
+    else:
+        sideways_counter += 1
+        
+    if sideways_counter >= SIDEWAYS_THRESHOLD:
+        local_stucked += 1
+        sideways_counter = 0
     
     # karena Simulated Annealing menggunakan Stochastic Hill Climbing, maka perlu ditentukan terlebih dahulu
     possible_swaps = []
@@ -281,6 +298,8 @@ print("="*60)
 print(f"\nSimulated Annealing completed after {current_iteration} iterations.")
 print(f"Final Temperature: {temperature:.2f}")
 print(f"Execution Time: {execution_time:.4f} seconds")
+
+print(f"Current case of Simulated Annealing made {local_stucked} times")
 
 # ==> Final plot of Diagram <==
 
