@@ -3,9 +3,6 @@ import random
 import json
 import sys
 
-# Set random seed for consistent results
-random.seed(42)
-
 # Load data from JSON file
 import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -142,7 +139,7 @@ while improvement_found and current_iteration < max_iterations:
             
             current_total_j = calculate_kontainer_total(kontainer[j])
             
-            # Barang variable (current & new)
+            # Barang variable (current)
             barang_i_temp   = kontainer[i][index_i]['barang']
             barang_j_temp   = kontainer[j][index_j]['barang']
             
